@@ -116,6 +116,3 @@ def detect_faces_in_image(file_stream):
     print("I found {} face(s) in this photograph.".format(len(face_locations)))
     
     return True if len(face_locations) > 0 else False
-
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5001, debug=True)
