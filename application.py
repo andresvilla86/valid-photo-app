@@ -1,14 +1,8 @@
 # $ curl -XPOST -F "file=@f02.jpg" http://192.168.1.35:5001/
 # http://35.206.106.108:5000/
-
+#
 # Returns:
-#
-
-#
-# This example is based on the Flask file upload example: http://flask.pocoo.org/docs/0.12/patterns/fileuploads/
-
-# NOTE: This example requires flask to be installed! You can install it with pip:
-# $ pip3 install flask
+#{"bg_white":true,"face_found":true,"height":300,"other_objects":true,"width":240,"width and height":"240x300"}
 
 import face_recognition
 from flask import Flask, jsonify, request, redirect
@@ -63,7 +57,6 @@ def process_photo(file_stream):
     size = 0
  
     decoded_img = cv2.imdecode(np.frombuffer(file_stream.read(), np.uint8), -1)
-    #print(decoded)
 
     face_found = detect_faces_in_image(file_stream)
     bg_white = detect_bg(decoded_img)
@@ -97,12 +90,8 @@ def detect_bg(img):
     upper_white = np.array([255,sensitivity,255])
 
     mask = cv2.inRange(hsv, lower_white, upper_white)
-
     ratio_white = cv2.countNonZero(mask)/(img.size/3)
-
     colorPercent = (ratio_white * (100))
-
-    print(colorPercent)
     return True if colorPercent > 35.0 else False
     
 
@@ -111,7 +100,4 @@ def detect_faces_in_image(file_stream):
     # Load the uploaded image file
     img = face_recognition.load_image_file(file_stream)
     face_locations = face_recognition.face_locations(img)
-
-    print("I found {} face(s) in this photograph.".format(len(face_locations)))
-    
     return True if len(face_locations) > 0 else False
