@@ -1,11 +1,9 @@
 # $ curl -XPOST -F "file=@f02.jpg" http://192.168.1.35:5001/
-#http://192.168.1.35:5001/
+# http://35.206.106.108:5000/
+
 # Returns:
 #
-# {
-#  "face_found_in_image": true,
-#  "is_picture_of_obama": true
-# }
+
 #
 # This example is based on the Flask file upload example: http://flask.pocoo.org/docs/0.12/patterns/fileuploads/
 
@@ -78,7 +76,8 @@ def process_photo(file_stream):
         "other_objects": True,
         "width": width,
         "height": height,
-        "width and height": width_and_height
+        "width and height": width_and_height,
+        "size": size
     }
     return jsonify(result)
 
