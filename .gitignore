@@ -5,5 +5,9 @@ env/
 venv/
 ENV/
 env.bak/
+<<<<<<< HEAD
 venv.bak/
 yolov3.weights
+=======
+venv.bak/
+>>>>>>> 04edc50952eaf64dba854a8611954d9d8e5047c9

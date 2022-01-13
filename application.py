@@ -206,3 +206,4 @@ def detect_obj(img):
     outs = net.forward (getOutputsNames(net))
    
     return postprocess (img, outs)
+
