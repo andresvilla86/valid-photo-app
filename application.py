@@ -138,6 +138,7 @@ def detect_faces_in_image(file_stream):
     face_locations = face_recognition.face_locations(img)
 
     print("I found {} face(s) in this photograph.".format(len(face_locations)))
+    return True if len(face_locations) > 0 else False
     
 def postprocess(img, outs):
     imgHeight = img.shape[0]
