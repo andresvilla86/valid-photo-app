@@ -12,12 +12,19 @@
 # NOTE: This example requires flask to be installed! You can install it with pip:
 # $ pip3 install flask
 
+from dis import dis
 import face_recognition
-from flask import Flask, jsonify, request, redirect
+from flask import Flask, jsonify, request, redirect, render_template
 import cv2
 import numpy as np
 from PIL import Image
 from numpy.core.fromnumeric import size
+import matplotlib.pyplot as plt
+from PIL import Image
+import statistics
+import dlib
+import math
+from mouth_open_algorithm import get_lip_height, get_mouth_height
 
 
 #OpenCV and Yolo Configurations **start here**
@@ -76,6 +83,7 @@ def upload_image():
       <input type="file" name="file">
       <input type="submit" value="Upload">
     </form>
+    
     '''
 
 def process_photo(file_stream):
@@ -87,6 +95,8 @@ def process_photo(file_stream):
     height = 0
     size = 0
     objects = []
+    glasses_on = False
+    open_mouth = False
  
     decoded_img = cv2.imdecode(np.frombuffer(file_stream.read(), np.uint8), -1)
     face_found = detect_faces_in_image(file_stream)
@@ -94,6 +104,9 @@ def process_photo(file_stream):
     width, height, size = img_props(decoded_img)
     width_and_height = str(width)+'x'+str(height)
     objects = detect_obj(decoded_img)
+    glasses_on = detect_glasses(file_stream)
+    mouth_open = detect_mouth(file_stream)
+    face_centered = detect_face_position(file_stream)
 
     result = {
         "face_found": face_found,
@@ -102,9 +115,61 @@ def process_photo(file_stream):
         "width": width,
         "height": height,
         "width and height": width_and_height,
-        "size" : size
+        "size" : size,
+        "glasses_on" : glasses_on,
+        "mouth_open": mouth_open,
+        "face_centered" : face_centered
      }
     return jsonify(result)
+
+def detect_face_position(file_stream):
+    
+    # Load the uploaded image file
+    img = face_recognition.load_image_file(file_stream)
+    
+    face_locations = face_recognition.face_locations(img)
+    face_encodings = face_recognition.face_encodings(img, face_locations)
+    face_landmarks = face_recognition.face_landmarks(img)
+    
+    h, w, c = img.shape
+
+    x2, y2 = [h/2,w/2]
+        
+    x1, y1 = face_landmarks[0]['nose_bridge'][2]
+    dist = math.hypot(x2 - x1, y2 - y1)
+    print(dist)
+
+
+    return True if dist < 40 else False
+
+def detect_mouth(file_stream):
+
+    # Load the uploaded image file
+    img = face_recognition.load_image_file(file_stream)
+    
+    face_locations = face_recognition.face_locations(img)
+    face_encodings = face_recognition.face_encodings(img, face_locations)
+    face_landmarks = face_recognition.face_landmarks(img)
+
+    top_lip = face_landmarks[0]['top_lip']
+    bottom_lip = face_landmarks[0]['bottom_lip']
+
+    top_lip_height = get_lip_height(top_lip)
+    bottom_lip_height = get_lip_height(bottom_lip)
+    mouth_height = get_mouth_height(top_lip, bottom_lip)
+    
+    # if mouth is open more than lip height * ratio, return true.
+    ratio = 0.5
+    print('top_lip_height: %.2f, bottom_lip_height: %.2f, mouth_height: %.2f, min*ratio: %.2f' 
+          % (top_lip_height,bottom_lip_height,mouth_height, min(top_lip_height, bottom_lip_height) * ratio))
+          
+    if mouth_height > min(top_lip_height, bottom_lip_height) * ratio:
+        print("Boca Abierta")
+        return True
+    else:
+        print("Boca Cerrada")
+        return False
+
 
 def img_props(img):
 
@@ -117,7 +182,7 @@ def img_props(img):
 def detect_bg(img):
 
     hsv = cv2.cvtColor(img,cv2.COLOR_BGR2HSV)
-    sensitivity = 15
+    sensitivity = 25
     lower_white = np.array([0,0,255-sensitivity])
     upper_white = np.array([255,sensitivity,255])
 
@@ -135,11 +200,51 @@ def detect_faces_in_image(file_stream):
     
     # Load the uploaded image file
     img = face_recognition.load_image_file(file_stream)
+    img2 = Image.open(file_stream)
     face_locations = face_recognition.face_locations(img)
-
+    
     print("I found {} face(s) in this photograph.".format(len(face_locations)))
     return True if len(face_locations) > 0 else False
+
+def detect_glasses(file_stream):
+    # Load the uploaded image file
+    img = face_recognition.load_image_file(file_stream)
+    img2 = Image.open(file_stream)
+    face_locations = face_recognition.face_locations(img)
+
+    # test code
+    detector = dlib.get_frontal_face_detector()
+    predictor = dlib.shape_predictor('shape_predictor_68_face_landmarks.dat')
     
+    rect = detector(img)[0]
+    sp = predictor(img, rect)
+    landmarks = np.array([[p.x, p.y] for p in sp.parts()])
+
+    nose_bridge_x = []
+    nose_bridge_y = []
+    for i in [28,29,30,31,33,34,35]:
+            nose_bridge_x.append(landmarks[i][0])
+            nose_bridge_y.append(landmarks[i][1])
+            
+            
+    ### x_min and x_max
+    x_min = min(nose_bridge_x)
+    x_max = max(nose_bridge_x)
+    ### ymin (from top eyebrow coordinate),  ymax
+    y_min = landmarks[20][1]
+    y_max = landmarks[31][1]
+    
+    img2 = img2.crop((x_min,y_min - 10,x_max,y_max -10))
+    
+    img_blur = cv2.GaussianBlur(np.array(img2),(3,3), sigmaX=0, sigmaY=0)
+    
+    edges = cv2.Canny(image =img_blur, threshold1=100, threshold2=200)
+
+    edges_center = edges.T[(int(len(edges.T)/2))]
+
+    return True if 255 in edges_center else False
+
+
 def postprocess(img, outs):
     imgHeight = img.shape[0]
     imgWidth = img.shape[1]
@@ -197,7 +302,6 @@ def getOutputsNames(net):
    
     # Get the names of the output layers, i.e. the layers with unconnected outputs
     return [layersNames[i[0] - 1] for i in net.getUnconnectedOutLayers()]
-    return True if len(face_locations) > 0 else False
 
 def detect_obj(img):
     blob = cv2.dnn.blobFromImage(img, 1/255, (inpWidth, inpHeight), [0,0,0], 1, crop = False)
@@ -207,4 +311,3 @@ def detect_obj(img):
     outs = net.forward (getOutputsNames(net))
    
     return postprocess (img, outs)
-
